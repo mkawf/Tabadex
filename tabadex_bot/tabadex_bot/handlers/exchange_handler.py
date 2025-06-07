@@ -191,13 +191,18 @@ async def cancel_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 # --- <<< بخش اصلاح شده و حیاتی >>> ---
 # تعریف متغیر exchange_handler برای export کردن به main.py
 exchange_handler = ConversationHandler(
-    entry_points=[MessageHandler(filters.Regex(f"^({get_text('exchange_button', 'fa')}|{get_text('exchange_button', 'en')})$"), start_exchange_conv)],
+    entry_points=[
+        MessageHandler(
+            filters.Regex(f"^({get_text('exchange_button', 'fa')}|{get_text('exchange_button', 'en')})$"),
+            start_exchange_conv
+        )
+    ],
     states={
         SELECT_FROM_CURRENCY: [CallbackQueryHandler(get_from_currency, pattern="^from_")],
-        SELECT_TO_CURRENCY: [CallbackQueryHandler(get_to_currency, pattern="^to_")],
         SELECT_FROM_NETWORK: [CallbackQueryHandler(get_from_network, pattern="^from_net_")],
-        SELECT_TO_NETWORK: [CallbackQueryHandler(get_to_network, pattern="^to_net_")],
         ENTER_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount)],
+        SELECT_TO_CURRENCY: [CallbackQueryHandler(get_to_currency, pattern="^to_")],
+        SELECT_TO_NETWORK: [CallbackQueryHandler(get_to_network, pattern="^to_net_")],
         CONFIRM_PREVIEW: [CallbackQueryHandler(get_preview_confirmation, pattern="^preview_confirm$")],
         ENTER_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_address_and_create_transaction)],
     },
