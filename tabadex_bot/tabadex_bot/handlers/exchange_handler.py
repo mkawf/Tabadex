@@ -210,4 +210,5 @@ exchange_handler = ConversationHandler(
         CallbackQueryHandler(cancel_exchange, pattern="^preview_cancel$"),
         CommandHandler('cancel', cancel_exchange)
     ],
+    per_message=True
 )
