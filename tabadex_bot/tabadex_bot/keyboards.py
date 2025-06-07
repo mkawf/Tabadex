@@ -60,9 +60,7 @@ def get_orders_keyboard(orders: list, lang: str, page: int, total_pages: int) ->
     return InlineKeyboardMarkup(keyboard)
 
 def get_back_to_orders_keyboard(lang: str, page: int) -> InlineKeyboardMarkup:
-    """A keyboard to go back to a specific page of the orders list."""
-    keyboard = [[InlineKeyboardButton(get_text("back_button", lang), callback_data=f"orders_page_{page}")]]
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back_button", lang), callback_data=f"orders_page_{page}")]])
     
 def get_addresses_keyboard(addresses: list, lang: str) -> InlineKeyboardMarkup:
     keyboard = [[InlineKeyboardButton(f"{addr.name} ({addr.currency_ticker.upper()})", callback_data="noop"), InlineKeyboardButton("🗑️", callback_data=f"delete_address_{addr.id}")] for addr in addresses]
@@ -88,11 +86,20 @@ def get_ticket_view_keyboard(lang: str, ticket_id: int, status_name: str) -> Inl
     keyboard.append([InlineKeyboardButton(get_text("back_button", lang), callback_data="support_view_list")])
     return InlineKeyboardMarkup(keyboard)
 
-def get_admin_settings_keyboard(lang: str, markup: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(get_text("current_markup", lang).format(markup=markup), callback_data="noop")],
-        [InlineKeyboardButton("✏️ " + get_text("change_markup_button", lang), callback_data="set_markup_start")]
-    ])
+def get_admin_tickets_keyboard(tickets: list, lang: str) -> InlineKeyboardMarkup:
+    """Displays a list of open tickets for admins."""
+    keyboard = []
+    for ticket in tickets:
+        status_icon = "🟡" if ticket.status == models.TicketStatus.PENDING_USER_REPLY else "🔵"
+        text = f"{status_icon} #{ticket.id} - User: {ticket.user_id} - {ticket.title}"
+        keyboard.append([InlineKeyboardButton(text, callback_data=f"admin_view_ticket_{ticket.id}")])
+    return InlineKeyboardMarkup(keyboard)
 
-def get_admin_broadcast_confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("✅ " + get_text("admin_broadcast_send", lang), callback_data="confirm_broadcast"), InlineKeyboardButton("❌ " + get_text("cancel_button", lang), callback_data="cancel_broadcast")]])
+def get_admin_ticket_view_keyboard(lang: str, ticket_id: int, status_name: str) -> InlineKeyboardMarkup:
+    """Keyboard for admin actions within a ticket view."""
+    keyboard = []
+    if status_name != 'CLOSED':
+        keyboard.append([InlineKeyboardButton("✍️ " + get_text("admin_reply_button", lang), callback_data=f"admin_reply_start_{ticket_id}")])
+        keyboard.append([InlineKeyboardButton("☑️ " + get_text("admin_close_ticket_button", lang), callback_data=f"admin_close_ticket_{ticket_id}")])
+    keyboard.append([InlineKeyboardButton(get_text("back_button", lang), callback_data="admin_tickets_main")])
+    return InlineKeyboardMarkup(keyboard)

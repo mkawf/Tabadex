@@ -1,26 +1,21 @@
 # tabadex_bot/main.py
 
-import asyncio
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, TypeHandler
-
 from .config import settings, logger
 from .database.session import AsyncSessionLocal, async_engine
 from .database.models import Base
 from .utils.swapzone_api import swapzone_api_client
-
-# --- Import All Handlers ---
 from .handlers.start_handler import start_handler, language_callback_handler
 from .handlers.menu_handler import menu_handler
 from .handlers.exchange_handler import exchange_handler
-from .handlers.account_handler import add_address_conv_handler, account_callback_handler
-from .handlers.support_handler import create_ticket_conv, reply_ticket_conv, support_callback_handler
-from .handlers.admin.panel_handler import admin_panel_callback_handler # <<<--- اصلاح شده
-from .handlers.admin.ticket_management import admin_reply_conv, admin_ticket_callback_handler
-from .handlers.admin.user_management import search_user_conv, admin_user_callback_handler
+from .handlers.account_handler import add_address_conv_handler, account_callback_handlers
+from .handlers.support_handler import create_ticket_conv, reply_ticket_conv, support_callback_handlers
+from .handlers.admin.panel_handler import admin_panel_callback_handler
+from .handlers.admin.ticket_management import admin_reply_conv, admin_ticket_handlers
+from .handlers.admin.user_management import search_user_conv, admin_user_handlers
 from .handlers.admin.broadcast import broadcast_conv_handler
-from .handlers.admin.settings_handler import set_markup_conv, admin_settings_callback_handler
-
+from .handlers.admin.settings_handler import set_markup_conv, admin_settings_handlers
 
 class DBSessionContext(ContextTypes.DEFAULT_TYPE):
     def __init__(self, *args, **kwargs):
@@ -42,7 +37,7 @@ async def on_startup(app: Application):
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created and bot started.")
-    
+
 async def on_shutdown(app: Application):
     await swapzone_api_client.close_session()
     logger.info("Bot shutdown tasks completed.")
@@ -61,19 +56,17 @@ def main() -> None:
         reply_ticket_conv, admin_reply_conv, search_user_conv,
         broadcast_conv_handler, set_markup_conv
     ]
-    for handler in conv_handlers:
-        application.add_handler(handler)
+    application.add_handlers(conv_handlers)
 
     application.add_handler(start_handler)
     application.add_handler(language_callback_handler)
 
     callback_handlers = [
-        account_callback_handler, support_callback_handler,
-        admin_panel_callback_handler, admin_ticket_callback_handler,
-        admin_user_callback_handler, admin_settings_callback_handler
+        *account_callback_handlers, *support_callback_handlers,
+        admin_panel_callback_handler, *admin_ticket_handlers,
+        *admin_user_handlers, *admin_settings_handlers
     ]
-    for handler in callback_handlers:
-        application.add_handler(handler)
+    application.add_handlers(callback_handlers)
 
     application.add_handler(menu_handler)
     
