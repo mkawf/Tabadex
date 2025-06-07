@@ -17,6 +17,7 @@ from ..keyboards import (
     get_cancel_keyboard
 )
 from ..locales import get_text
+from .start_handler import show_main_menu
 
 GET_TOPIC, GET_MESSAGE, GET_REPLY = range(30, 33)
 
@@ -99,7 +100,8 @@ async def view_my_tickets(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(get_text("support_no_tickets", lang))
         return
 
-    await update.message.reply_text(text=".", reply_markup=ReplyKeyboardRemove())
+    # Remove the main keyboard and show the inline list
+    await update.message.reply_text(text="...", reply_markup=ReplyKeyboardRemove())
     await update.message.reply_text(
         text=get_text("my_tickets_title", lang),
         reply_markup=get_user_tickets_keyboard(tickets, lang)
@@ -165,7 +167,6 @@ async def get_reply_and_save(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await crud.add_reply_to_ticket(session, ticket_id, user_id, reply_text, is_admin=False)
     
-    # After replying, show the ticket details again
     class MockQuery:
         def __init__(self, t_id, message):
             self.data = f"view_ticket_{t_id}"
@@ -183,12 +184,18 @@ async def cancel_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     query = update.callback_query
     await query.answer()
     context.user_data.pop('reply_ticket_id', None)
-    # Re-show the ticket details
     await show_ticket_details(update, context)
     return ConversationHandler.END
+    
+async def back_to_ticket_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback for the back button from a ticket view to the list."""
+    query = update.callback_query
+    await query.answer()
+    # We need to send a new message for the list as we are coming from an inline view
+    await view_my_tickets(query, context)
+
 
 # --- Handlers ---
-
 create_ticket_conv = ConversationHandler(
     entry_points=[MessageHandler(filters.Regex(f"^({get_text('create_new_ticket_button', 'fa')}|{get_text('create_new_ticket_button', 'en')})$"), create_ticket_start)],
     states={
@@ -210,8 +217,9 @@ reply_ticket_conv = ConversationHandler(
 
 # --- <<< بخش اصلاح شده و حیاتی >>> ---
 # تعریف لیستی از هندلرهای کلیک و پیام برای export کردن به main.py
-support_callback_handlers = [
+support_handlers = [
     CallbackQueryHandler(show_ticket_details, pattern="^view_ticket_"),
     CallbackQueryHandler(close_ticket, pattern="^close_ticket_"),
+    CallbackQueryHandler(back_to_ticket_list, pattern="^back_to_ticket_list$"),
     MessageHandler(filters.Regex(f"^({get_text('view_my_tickets_button', 'fa')}|{get_text('view_my_tickets_button', 'en')})$"), view_my_tickets)
 ]
