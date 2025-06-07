@@ -15,7 +15,7 @@ from .handlers.menu_handler import menu_handler
 from .handlers.exchange_handler import exchange_handler
 from .handlers.account_handler import add_address_conv_handler, account_callback_handler
 from .handlers.support_handler import create_ticket_conv, reply_ticket_conv, support_callback_handler
-from .handlers.admin.panel_handler import admin_panel_callback_handler
+from .handlers.admin.panel_handler import admin_panel_callback_handler # <<<--- اصلاح شده
 from .handlers.admin.ticket_management import admin_reply_conv, admin_ticket_callback_handler
 from .handlers.admin.user_management import search_user_conv, admin_user_callback_handler
 from .handlers.admin.broadcast import broadcast_conv_handler
@@ -56,7 +56,6 @@ def main() -> None:
     
     application.add_handler(TypeHandler(Update, db_middleware), group=-1)
 
-    # Conversation Handlers
     conv_handlers = [
         exchange_handler, add_address_conv_handler, create_ticket_conv,
         reply_ticket_conv, admin_reply_conv, search_user_conv,
@@ -65,11 +64,9 @@ def main() -> None:
     for handler in conv_handlers:
         application.add_handler(handler)
 
-    # Command & Basic Handlers
     application.add_handler(start_handler)
     application.add_handler(language_callback_handler)
 
-    # CallbackQuery Handlers for inline buttons
     callback_handlers = [
         account_callback_handler, support_callback_handler,
         admin_panel_callback_handler, admin_ticket_callback_handler,
@@ -78,7 +75,6 @@ def main() -> None:
     for handler in callback_handlers:
         application.add_handler(handler)
 
-    # MessageHandler for ReplyKeyboard buttons MUST be last
     application.add_handler(menu_handler)
     
     logger.info("Bot is now polling for updates...")
