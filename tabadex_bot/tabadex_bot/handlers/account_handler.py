@@ -1,5 +1,4 @@
 # tabadex_bot/handlers/account_handler.py
-
 import math
 from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import (
@@ -12,7 +11,7 @@ from ..config import logger
 from ..database import crud
 from ..keyboards import (
     get_account_menu_keyboard, get_language_selection_keyboard,
-    get_orders_keyboard, get_back_to_orders_keyboard,
+    get_orders_keyboard, get_back_to_orders_keyboard, # <<<--- اکنون به درستی وارد می‌شود
     get_addresses_keyboard, create_currency_keyboard, get_cancel_keyboard
 )
 from ..locales import get_text
@@ -23,24 +22,15 @@ ORDERS_PER_PAGE = 5
 GET_CURRENCY, GET_ADDRESS, GET_NAME = range(20, 23)
 
 async def show_account_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Displays the account menu using ReplyKeyboard."""
     lang = context.user_data.get("lang", "fa")
-    await update.message.reply_text(
-        text=get_text("account_menu_title", lang),
-        reply_markup=get_account_menu_keyboard(lang)
-    )
+    await update.message.reply_text(get_text("account_menu_title", lang), reply_markup=get_account_menu_keyboard(lang))
 
 async def handle_orders_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the 'My Orders' button press and shows the first page."""
     lang = context.user_data.get("lang", "fa")
-    await update.message.reply_text(
-        get_text("my_orders_title_loading", lang),
-        reply_markup=ReplyKeyboardRemove()
-    )
+    await update.message.reply_text(get_text("my_orders_title_loading", lang), reply_markup=ReplyKeyboardRemove())
     await show_orders_page(update, context, page_number=1)
 
 async def show_orders_page(update: Update, context: ContextTypes.DEFAULT_TYPE, page_number: int):
-    """Displays a specific page of the user's orders."""
     lang = context.user_data.get("lang", "fa")
     user_id = update.effective_user.id
     session: AsyncSession = context.db_session
@@ -64,7 +54,6 @@ async def show_orders_page(update: Update, context: ContextTypes.DEFAULT_TYPE, p
 
 
 async def orders_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles pagination button clicks for orders."""
     query = update.callback_query
     await query.answer()
     page = int(query.data.split("_")[-1])
@@ -72,7 +61,6 @@ async def orders_page_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     await show_orders_page(update, context, page_number=page)
 
 async def show_order_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Shows detailed information about a single order."""
     query = update.callback_query
     await query.answer()
     lang = context.user_data.get("lang", "fa")
@@ -95,7 +83,6 @@ async def show_order_details(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
     keyboard = get_back_to_orders_keyboard(lang, page)
     await query.edit_message_text(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-
 
 async def handle_saved_addresses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "fa")
@@ -136,10 +123,7 @@ async def add_address_start(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         currencies = await swapzone_api_client.get_currencies()
         currencies = [c for c in currencies if c.get('ticker') and c.get('name')]
         keyboard = create_currency_keyboard(currencies, "add_addr_curr")
-        await query.edit_message_text(
-            text=get_text("add_address_select_currency", lang),
-            reply_markup=keyboard
-        )
+        await query.edit_message_text(text=get_text("add_address_select_currency", lang), reply_markup=keyboard)
         return GET_CURRENCY
     except Exception as e:
         logger.error(f"Error starting add_address: {e}")
@@ -152,10 +136,7 @@ async def get_currency_for_address(update: Update, context: ContextTypes.DEFAULT
     lang = context.user_data.get("lang", "fa")
     currency_ticker = query.data.split("_")[-1]
     context.user_data['new_address_ticker'] = currency_ticker
-    await query.edit_message_text(
-        text=get_text("add_address_enter_address", lang).format(currency=currency_ticker.upper()),
-        reply_markup=get_cancel_keyboard(lang, "cancel_add_address")
-    )
+    await query.edit_message_text(text=get_text("add_address_enter_address", lang).format(currency=currency_ticker.upper()), reply_markup=get_cancel_keyboard(lang, "cancel_add_address"))
     return GET_ADDRESS
 
 async def get_address_for_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -165,10 +146,7 @@ async def get_address_for_save(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(get_text("error_invalid_address", lang))
         return GET_ADDRESS
     context.user_data['new_address_string'] = address
-    await update.message.reply_text(
-        text=get_text("add_address_enter_name", lang),
-        reply_markup=get_cancel_keyboard(lang, "cancel_add_address")
-    )
+    await update.message.reply_text(text=get_text("add_address_enter_name", lang), reply_markup=get_cancel_keyboard(lang, "cancel_add_address"))
     return GET_NAME
 
 async def get_name_and_save_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -201,7 +179,7 @@ async def cancel_add_address(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def handle_change_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        get_text("choose_language"),
+        get_text("choose_language_inline"), # Use a different key for inline
         reply_markup=get_language_selection_keyboard()
     )
 
@@ -215,8 +193,6 @@ add_address_conv_handler = ConversationHandler(
     fallbacks=[CallbackQueryHandler(cancel_add_address, pattern="^cancel_add_address$")],
 )
 
-# --- <<< بخش اصلاح شده و حیاتی >>> ---
-# تعریف لیستی از هندلرها برای export کردن به main.py
 account_handlers = [
     MessageHandler(filters.Regex(f"^({get_text('my_orders_button', 'fa')}|{get_text('my_orders_button', 'en')})$"), handle_orders_list),
     MessageHandler(filters.Regex(f"^({get_text('saved_addresses_button', 'fa')}|{get_text('saved_addresses_button', 'en')})$"), handle_saved_addresses),
