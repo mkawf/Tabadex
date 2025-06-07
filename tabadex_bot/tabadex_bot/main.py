@@ -1,6 +1,7 @@
 # tabadex_bot/main.py
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, TypeHandler
+from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings, logger
 from .database.session import AsyncSessionLocal, async_engine
 from .database.models import Base
@@ -8,9 +9,13 @@ from .utils.swapzone_api import swapzone_api_client
 from .handlers.start_handler import start_handler, language_handler
 from .handlers.menu_handler import menu_handler
 from .handlers.exchange_handler import exchange_handler
-from .handlers.account_handler import account_handlers, add_address_conv_handler
-from .handlers.support_handler import support_handlers, create_ticket_conv, reply_ticket_conv
-from .handlers.admin_handler import admin_handlers, admin_conv_handlers
+from .handlers.account_handler import add_address_conv_handler, account_handlers
+from .handlers.support_handler import create_ticket_conv, reply_ticket_conv, support_handlers
+from .handlers.admin.panel_handler import admin_panel_handler
+from .handlers.admin.ticket_management import admin_reply_conv, admin_ticket_handlers
+from .handlers.admin.user_management import search_user_conv, admin_user_handlers
+from .handlers.admin.broadcast import broadcast_conv_handler
+from .handlers.admin.settings_handler import set_markup_conv, admin_settings_handlers
 
 class DBSessionContext(ContextTypes.DEFAULT_TYPE):
     def __init__(self, *args, **kwargs):
@@ -21,13 +26,16 @@ class DBSessionContext(ContextTypes.DEFAULT_TYPE):
         if self._db_session is None: raise AttributeError("db_session is not set.")
         return self._db_session
     @db_session.setter
-    def db_session(self, value: AsyncSession): self._db_session = value
+    def db_session(self, value: AsyncSession):
+        self._db_session = value
 
-async def db_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with AsyncSessionLocal() as session: context.db_session = session
+async def db_middleware(update: Update, context: DBSessionContext):
+    async with AsyncSessionLocal() as session:
+        context.db_session = session
 
 async def on_startup(app: Application):
-    async with async_engine.begin() as conn: await conn.run_sync(Base.metadata.create_all)
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created and bot started.")
 
 async def on_shutdown(app: Application):
@@ -40,25 +48,25 @@ def main() -> None:
         ApplicationBuilder().token(settings.BOT_TOKEN).context_types(context_types)
         .post_init(on_startup).post_shutdown(on_shutdown).build()
     )
+    
     application.add_handler(TypeHandler(Update, db_middleware), group=-1)
 
-    # Register all handlers
+    conv_handlers = [
+        exchange_handler, add_address_conv_handler, create_ticket_conv,
+        reply_ticket_conv, admin_reply_conv, search_user_conv,
+        broadcast_conv_handler, set_markup_conv
+    ]
+    application.add_handlers(conv_handlers)
+
     application.add_handler(start_handler)
     application.add_handler(language_handler)
-    
-    # Conversation Handlers
-    application.add_handler(exchange_handler)
-    application.add_handler(add_address_conv_handler)
-    application.add_handler(create_ticket_conv)
-    application.add_handler(reply_ticket_conv)
-    application.add_handlers(admin_conv_handlers)
 
-    # Callback and Message Handlers
-    application.add_handlers(account_handlers)
-    application.add_handlers(support_handlers)
-    application.add_handlers(admin_handlers)
-    
-    # Main menu router must be last
+    all_handlers = [
+        *account_handlers, *support_handlers, admin_panel_handler,
+        *admin_ticket_handlers, *admin_user_handlers, *admin_settings_handlers
+    ]
+    application.add_handlers(all_handlers)
+
     application.add_handler(menu_handler)
     
     logger.info("Bot is now polling for updates...")
