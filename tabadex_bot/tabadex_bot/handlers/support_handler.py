@@ -138,11 +138,10 @@ async def close_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE):
     success = await crud.close_ticket_by_user(session, ticket_id, update.effective_user.id)
     if success:
         await query.answer(get_text("support_ticket_closed_success", lang), show_alert=True)
-        await show_ticket_details(update, context) # Refresh the view
+        await show_ticket_details(update, context)
     else:
         await query.answer(get_text("error_generic", lang), show_alert=True)
 
-# --- Conversation to reply to a ticket ---
 async def reply_to_ticket_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Starts the reply process."""
     query = update.callback_query
@@ -167,23 +166,26 @@ async def get_reply_and_save(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await crud.add_reply_to_ticket(session, ticket_id, user_id, reply_text, is_admin=False)
     
     # After replying, show the ticket details again
-    # We need to create a mock query object to pass to show_ticket_details
     class MockQuery:
-        def __init__(self, t_id):
+        def __init__(self, t_id, message):
             self.data = f"view_ticket_{t_id}"
+            self.message = message
         async def answer(self): pass
         async def edit_message_text(self, *args, **kwargs):
-            await update.message.reply_text(*args, **kwargs)
+            await self.message.reply_text(*args, **kwargs)
 
-    mock_update = Update(update.update_id, message=update.message, callback_query=MockQuery(ticket_id))
+    mock_update = Update(update.update_id, message=update.message, callback_query=MockQuery(ticket_id, update.message))
     await show_ticket_details(mock_update, context)
 
     return ConversationHandler.END
 
 async def cancel_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # ... (Implementation for cancelling a reply)
+    query = update.callback_query
+    await query.answer()
+    context.user_data.pop('reply_ticket_id', None)
+    # Re-show the ticket details
+    await show_ticket_details(update, context)
     return ConversationHandler.END
-
 
 # --- Handlers ---
 
@@ -197,7 +199,6 @@ create_ticket_conv = ConversationHandler(
     per_user=True, per_chat=True
 )
 
-# --- <<< متغیر حذف شده در اینجا دوباره تعریف شده است >>> ---
 reply_ticket_conv = ConversationHandler(
     entry_points=[CallbackQueryHandler(reply_to_ticket_start, pattern=r"^reply_ticket_")],
     states={
@@ -207,6 +208,10 @@ reply_ticket_conv = ConversationHandler(
     per_user=True, per_chat=True
 )
 
-support_callback_handler = CallbackQueryHandler(show_ticket_details, pattern="^view_ticket_")
-support_close_handler = CallbackQueryHandler(close_ticket, pattern="^close_ticket_")
-support_view_list_handler = MessageHandler(filters.Regex(f"^({get_text('view_my_tickets_button', 'fa')}|{get_text('view_my_tickets_button', 'en')})$"), view_my_tickets)
+# --- <<< بخش اصلاح شده و حیاتی >>> ---
+# تعریف لیستی از هندلرهای کلیک و پیام برای export کردن به main.py
+support_callback_handlers = [
+    CallbackQueryHandler(show_ticket_details, pattern="^view_ticket_"),
+    CallbackQueryHandler(close_ticket, pattern="^close_ticket_"),
+    MessageHandler(filters.Regex(f"^({get_text('view_my_tickets_button', 'fa')}|{get_text('view_my_tickets_button', 'en')})$"), view_my_tickets)
+]
