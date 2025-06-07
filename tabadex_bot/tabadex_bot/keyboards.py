@@ -8,6 +8,7 @@ from .database.models import User, Order, SavedAddress, Ticket, TicketStatus
 # --- Reply Keyboards (دکمه‌های ثابت) ---
 
 def get_main_menu_keyboard(lang: str, is_admin: bool) -> ReplyKeyboardMarkup:
+    """کیبورد منوی اصلی با دکمه‌های Reply."""
     keyboard = [
         [KeyboardButton(get_text("exchange_button", lang)), KeyboardButton(get_text("buy_tether_button", lang))],
         [KeyboardButton(get_text("account_button", lang)), KeyboardButton(get_text("support_button", lang))]
