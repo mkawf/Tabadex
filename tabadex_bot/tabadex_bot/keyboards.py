@@ -1,26 +1,45 @@
 # tabadex_bot/keyboards.py
 from typing import List, Dict, Any
 from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+
 from .locales import get_text
-from .database.models import TicketStatus
+from .database.models import TicketStatus, User, Order, SavedAddress, Ticket
 
 # --- Reply Keyboards (دکمه‌های ثابت) ---
+
 def get_main_menu_keyboard(lang: str, is_admin: bool) -> ReplyKeyboardMarkup:
-    keyboard = [[KeyboardButton(get_text("exchange_button", lang)), KeyboardButton(get_text("buy_tether_button", lang))],[KeyboardButton(get_text("account_button", lang)), KeyboardButton(get_text("support_button", lang))]]
-    if is_admin: keyboard.append([KeyboardButton(get_text("admin_panel_button", lang))])
+    """کیبورد منوی اصلی با دکمه‌های Reply."""
+    keyboard = [
+        [KeyboardButton(get_text("exchange_button", lang)), KeyboardButton(get_text("buy_tether_button", lang))],
+        [KeyboardButton(get_text("account_button", lang)), KeyboardButton(get_text("support_button", lang))]
+    ]
+    if is_admin:
+        keyboard.append([KeyboardButton(get_text("admin_panel_button", lang))])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 def get_language_selection_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup([["🇮🇷 فارسی (Persian)", "🇬🇧 English"]], resize_keyboard=True, one_time_keyboard=True)
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🇮🇷 فارسی (Persian)"), KeyboardButton("🇬🇧 English")]
+    ], resize_keyboard=True, one_time_keyboard=True)
 
 def get_account_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup([[KeyboardButton(get_text("my_orders_button", lang)), KeyboardButton(get_text("saved_addresses_button", lang))],[KeyboardButton(get_text("change_language_button", lang)), KeyboardButton(get_text("back_button", lang))]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([
+        [KeyboardButton(get_text("my_orders_button", lang)), KeyboardButton(get_text("saved_addresses_button", lang))],
+        [KeyboardButton(get_text("change_language_button", lang)), KeyboardButton(get_text("back_button", lang))]
+    ], resize_keyboard=True)
 
 def get_support_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup([[KeyboardButton(get_text("create_new_ticket_button", lang)), KeyboardButton(get_text("view_my_tickets_button", lang))],[KeyboardButton(get_text("back_button", lang))]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([
+        [KeyboardButton(get_text("create_new_ticket_button", lang)), KeyboardButton(get_text("view_my_tickets_button", lang))],
+        [KeyboardButton(get_text("back_button", lang))]
+    ], resize_keyboard=True)
 
 def get_admin_panel_keyboard(lang: str) -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup([[KeyboardButton(get_text("admin_user_management", lang)), KeyboardButton(get_text("admin_ticket_management", lang))],[KeyboardButton(get_text("admin_statistics", lang)), KeyboardButton(get_text("admin_broadcast", lang))],[KeyboardButton(get_text("admin_settings", lang)), KeyboardButton(get_text("back_button", lang))]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([
+        [KeyboardButton(get_text("admin_user_management", lang)), KeyboardButton(get_text("admin_ticket_management", lang))],
+        [KeyboardButton(get_text("admin_statistics", lang)), KeyboardButton(get_text("admin_broadcast", lang))],
+        [KeyboardButton(get_text("admin_settings", lang)), KeyboardButton(get_text("back_button", lang))]
+    ], resize_keyboard=True)
 
 # --- Inline Keyboards (دکمه‌های شیشه‌ای) ---
 def get_cancel_keyboard(lang: str, callback_data: str) -> InlineKeyboardMarkup:
@@ -31,12 +50,12 @@ def create_currency_keyboard(currencies: list, lang: str, callback_prefix: str, 
     keyboard = [buttons[i:i+3] for i in range(0, len(buttons), 3)]
     if show_extra_buttons:
         keyboard.append([
-            InlineKeyboardButton("🔍 " + get_text("search_currency_button", lang), callback_data=f"exchange_search"),
-            InlineKeyboardButton("📜 " + get_text("view_all_currencies_button", lang), callback_data=f"exchange_view_all")
+            InlineKeyboardButton("🔍 " + get_text("search_currency_button", lang), callback_data=f"{callback_prefix}_search"),
+            InlineKeyboardButton("📜 " + get_text("view_all_currencies_button", lang), callback_data=f"{callback_prefix}_view_all")
         ])
     return InlineKeyboardMarkup(keyboard)
 
-def create_network_keyboard(networks: list, lang: str, callback_prefix: str) -> InlineKeyboardMarkup:
+def create_network_keyboard(networks: list, callback_prefix: str) -> InlineKeyboardMarkup:
     buttons = [InlineKeyboardButton(network.upper(), callback_data=f"{callback_prefix}_{network}") for network in networks]
     return InlineKeyboardMarkup([buttons[i:i+2] for i in range(0, len(buttons), 2)])
 
@@ -51,6 +70,10 @@ def get_orders_keyboard(orders: list, lang: str, page: int, total_pages: int) ->
     if pagination_row: keyboard.append(pagination_row)
     keyboard.append([InlineKeyboardButton(get_text("back_button", lang), callback_data="back_to_account_menu")])
     return InlineKeyboardMarkup(keyboard)
+
+def get_back_to_orders_keyboard(lang: str, page: int) -> InlineKeyboardMarkup:
+    """A keyboard to go back to a specific page of the orders list."""
+    return InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back_button", lang), callback_data=f"orders_page_{page}")]])
     
 def get_addresses_keyboard(addresses: list, lang: str) -> InlineKeyboardMarkup:
     keyboard = [[InlineKeyboardButton(f"{addr.name} ({addr.currency_ticker.upper()})", callback_data="noop"), InlineKeyboardButton("🗑️", callback_data=f"delete_address_{addr.id}")] for addr in addresses]
@@ -79,6 +102,7 @@ def get_ticket_view_keyboard(lang: str, ticket_id: int, status_name: str) -> Inl
     return InlineKeyboardMarkup(keyboard)
 
 def get_admin_settings_keyboard(lang: str, markup: str) -> InlineKeyboardMarkup:
-    keyboard = [[InlineKeyboardButton(get_text("current_markup", lang).format(markup=markup), callback_data="noop")],[InlineKeyboardButton("✏️ " + get_text("change_markup_button", lang), callback_data="set_markup_start")]]
-    keyboard.append([InlineKeyboardButton(get_text("back_button", lang), callback_data="admin_panel")])
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup([[InlineKeyboardButton(get_text("current_markup", lang).format(markup=markup), callback_data="noop")], [InlineKeyboardButton("✏️ " + get_text("change_markup_button", lang), callback_data="set_markup_start")]])
+
+def get_back_to_admin_panel_keyboard(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back_button", lang), callback_data="admin_panel")]])
