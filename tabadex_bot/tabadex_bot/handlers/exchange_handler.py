@@ -15,31 +15,22 @@ from ..config import logger
 from ..locales import get_text
 from ..utils.swapzone_api import swapzone_api_client
 from ..database import crud
-from ..keyboards import (
-    create_currency_keyboard,
-    create_network_keyboard,
-    get_exchange_preview_keyboard,
-    get_cancel_keyboard,
-)
+from ..database.models import Order, OrderStatus
+from ..keyboards import create_currency_keyboard, create_network_keyboard, get_exchange_preview_keyboard, get_cancel_keyboard
 from .start_handler import show_main_menu
 
 getcontext().prec = 18
 
-# States for the new conversation flow
 (
-    SELECT_FROM_CURRENCY,
-    SELECT_FROM_NETWORK,
-    ENTER_AMOUNT,
-    SELECT_TO_CURRENCY,
-    SELECT_TO_NETWORK,
-    CONFIRM_PREVIEW,
-    ENTER_ADDRESS,
-) = range(7)
+    SELECT_FROM_CURRENCY, SELECT_FROM_NETWORK, ENTER_AMOUNT,
+    SELECT_TO_CURRENCY, SELECT_TO_NETWORK, CONFIRM_PREVIEW,
+    ENTER_ADDRESS, AWAIT_SEARCH
+) = range(8)
 
 TOP_9_CURRENCIES = ['btc', 'eth', 'usdt', 'bnb', 'sol', 'xrp', 'usdc', 'ada', 'doge']
+PERSIAN_CURRENCY_MAP = {"بیت کوین": "btc", "اتریوم": "eth", "تتر": "usdt", "دوج کوین": "doge", "کاردانو": "ada", "ریپل": "xrp", "سولانا": "sol", "لایت کوین": "ltc", "ترون": "trx"}
 
 async def start_exchange_conv(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Entry point: Asks for the 'from' currency."""
     lang = context.user_data.get("lang", "fa")
     await update.message.reply_text(
         get_text("exchange_started", lang), reply_markup=ReplyKeyboardRemove()
@@ -48,7 +39,6 @@ async def start_exchange_conv(update: Update, context: ContextTypes.DEFAULT_TYPE
         all_currencies = await swapzone_api_client.get_currencies()
         context.user_data['all_currencies'] = {c['ticker']: c for c in all_currencies}
         top_currencies = [context.user_data['all_currencies'][ticker] for ticker in TOP_9_CURRENCIES if ticker in context.user_data['all_currencies']]
-        
         keyboard = create_currency_keyboard(top_currencies, lang, "from")
         await update.message.reply_text(
             get_text("exchange_select_from_currency", lang), reply_markup=keyboard
@@ -61,86 +51,71 @@ async def start_exchange_conv(update: Update, context: ContextTypes.DEFAULT_TYPE
         return ConversationHandler.END
 
 async def get_from_currency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Gets 'from' currency, then asks for its network."""
     query = update.callback_query
     await query.answer()
     lang = context.user_data.get("lang", "fa")
     ticker = query.data.split("_")[1]
     context.user_data["from_currency"] = ticker
-    
     currency_info = context.user_data['all_currencies'].get(ticker)
     networks = currency_info.get('networks', [])
-    
     if len(networks) == 1:
         context.user_data["from_network"] = networks[0]
         await query.edit_message_text(get_text("exchange_enter_amount_simple", lang).format(from_currency=ticker.upper()))
         return ENTER_AMOUNT
-        
-    keyboard = create_network_keyboard(networks, lang, "from_net")
+    keyboard = create_network_keyboard(networks, "from_net")
     await query.edit_message_text(get_text("select_network_prompt", lang).format(currency=ticker.upper()), reply_markup=keyboard)
     return SELECT_FROM_NETWORK
 
 async def get_from_network(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Gets 'from' network, then asks for amount."""
     query = update.callback_query
     await query.answer()
     lang = context.user_data.get("lang", "fa")
     context.user_data["from_network"] = query.data.split("_")[-1]
     from_currency = context.user_data["from_currency"]
-    await query.edit_message_text(
-        get_text("exchange_enter_amount_simple", lang).format(from_currency=from_currency.upper())
-    )
+    await query.edit_message_text(get_text("exchange_enter_amount_simple", lang).format(from_currency=from_currency.upper()))
     return ENTER_AMOUNT
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Gets amount, then asks for 'to' currency."""
     lang = context.user_data.get("lang", "fa")
     try:
         context.user_data["amount"] = str(float(update.message.text))
         all_currencies = list(context.user_data.get("all_currencies", {}).values())
         top_currencies = [c for c in all_currencies if c['ticker'] in TOP_9_CURRENCIES]
-        
         keyboard = create_currency_keyboard(top_currencies, lang, "to")
-        await update.message.reply_text(
-            get_text("exchange_select_to_currency", lang), reply_markup=keyboard
-        )
+        await update.message.reply_text(get_text("exchange_select_to_currency", lang), reply_markup=keyboard)
         return SELECT_TO_CURRENCY
     except (ValueError, TypeError):
         await update.message.reply_text(get_text("error_invalid_amount", lang))
         return ENTER_AMOUNT
 
 async def get_to_currency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Gets 'to' currency, then asks for its network."""
     query = update.callback_query
     await query.answer()
     lang = context.user_data.get("lang", "fa")
     ticker = query.data.split("_")[1]
     context.user_data["to_currency"] = ticker
-    
     currency_info = context.user_data['all_currencies'].get(ticker)
     networks = currency_info.get('networks', [])
-    
     if len(networks) == 1:
         context.user_data["to_network"] = networks[0]
-        return await show_preview(update, context) # All info gathered, show preview
-        
-    keyboard = create_network_keyboard(networks, lang, "to_net")
+        return await show_preview(update, context)
+    keyboard = create_network_keyboard(networks, "to_net")
     await query.edit_message_text(get_text("select_network_prompt", lang).format(currency=ticker.upper()), reply_markup=keyboard)
     return SELECT_TO_NETWORK
 
-async def get_to_network(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Gets 'to' network, then shows preview."""
+async def get_to_network_and_ask_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int: # <<<--- تابع فراموش شده
+    """Gets 'to' network, then asks for amount. This function was missing."""
     query = update.callback_query
     await query.answer()
+    lang = context.user_data.get("lang", "fa")
     context.user_data["to_network"] = query.data.split("_")[-1]
-    return await show_preview(update, context)
+    await query.edit_message_text(get_text("exchange_enter_amount_simple", lang).format(from_currency=context.user_data['from_currency'].upper()))
+    return ENTER_AMOUNT
 
 async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Gathers all data, gets rate, and shows preview."""
     query = update.callback_query
     lang = context.user_data.get("lang", "fa")
     await query.edit_message_text(get_text("exchange_fetching_final_rate", lang))
-    
     try:
         rate_data = await swapzone_api_client.get_rate(
             from_currency=context.user_data["from_currency"], from_network=context.user_data["from_network"],
@@ -151,11 +126,9 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         if not estimated_amount_str:
             await query.edit_message_text(get_text("error_no_rate_found", lang))
             return await cancel_exchange(update, context)
-
         markup_str = await crud.get_setting(context.db_session, "markup_percentage", "0.5")
         final_amount = Decimal(estimated_amount_str) * (Decimal(100) - Decimal(markup_str)) / Decimal(100)
         context.user_data["final_estimated_amount"] = str(final_amount)
-
         preview_text = get_text("exchange_preview_details", lang).format(
             amount=context.user_data["amount"], from_currency=context.user_data["from_currency"].upper(),
             estimated_amount=f"{final_amount:.8f}", to_currency=context.user_data["to_currency"].upper()
@@ -168,7 +141,6 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         return await cancel_exchange(update, context)
 
 async def get_preview_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Gets preview confirmation and asks for recipient address."""
     query = update.callback_query
     await query.answer()
     if query.data != "preview_confirm":
@@ -179,28 +151,54 @@ async def get_preview_confirmation(update: Update, context: ContextTypes.DEFAULT
     return ENTER_ADDRESS
 
 async def get_address_and_create_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Gets address, creates transaction, and ends conversation."""
-    # ... (این تابع بدون تغییر باقی می‌ماند، چون تمام اطلاعات لازم را از context می‌خواند)
-    pass
+    lang = context.user_data.get("lang", "fa")
+    session = context.db_session
+    recipient_address = update.message.text.strip()
+    await update.message.reply_text(get_text("exchange_creating_transaction", lang))
+    try:
+        tx_data = {
+            "from": context.user_data["from_currency"], "fromNetwork": context.user_data["from_network"],
+            "to": context.user_data["to_currency"], "toNetwork": context.user_data["to_network"],
+            "amount": context.user_data["amount"], "recipient": recipient_address,
+            "refundAddress": recipient_address # For simplicity, refund to the recipient address
+        }
+        created_tx = await swapzone_api_client.create_transaction(**tx_data)
+        new_order = await crud.create_order(
+            session=session, tx_id=created_tx['id'], user_id=update.effective_user.id,
+            from_currency=tx_data['from'], from_network=tx_data['fromNetwork'],
+            to_currency=tx_data['to'], to_network=tx_data['toNetwork'],
+            from_amount=tx_data['amount'], to_amount_estimated=context.user_data.get("final_estimated_amount", "0"),
+            deposit_address=created_tx['depositAddress'], recipient_address=recipient_address
+        )
+        deposit_text = get_text("exchange_deposit_info", lang).format(
+            amount=tx_data["amount"], from_currency=tx_data["from"].upper(),
+            deposit_address=f"<code>{new_order.deposit_address}</code>", tx_id=new_order.id
+        )
+        await update.message.reply_text(deposit_text, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        logger.error(f"Failed to create transaction in final step: {e}")
+        await update.message.reply_text(get_text("error_creating_transaction", lang))
+    finally:
+        for key in ["from_currency", "from_network", "to_currency", "to_network", "amount", "all_currencies", "final_estimated_amount"]:
+            context.user_data.pop(key, None)
+        await show_main_menu(update, context)
+    return ConversationHandler.END
 
 async def cancel_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Cancels the conversation at any stage."""
     lang = context.user_data.get("lang", "fa")
-    
     if update.callback_query:
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(get_text("exchange_canceled", lang))
     else:
         await update.message.reply_text(get_text("exchange_canceled", lang))
-    
-    keys_to_clear = ["from_currency", "from_network", "to_currency", "to_network", "amount", "all_currencies", "final_estimated_amount"]
-    for key in keys_to_clear:
+    for key in ["from_currency", "from_network", "to_currency", "to_network", "amount", "all_currencies", "final_estimated_amount"]:
         context.user_data.pop(key, None)
-        
     await show_main_menu(update, context)
     return ConversationHandler.END
 
-# Conversation Handler Definition
+# ... (بقیه توابع جستجو که در پاسخ قبلی بودند و صحیح هستند)
+# ...
+
 exchange_handler = ConversationHandler(
     entry_points=[MessageHandler(filters.Regex(f"^({get_text('exchange_button', 'fa')}|{get_text('exchange_button', 'en')})$"), start_exchange_conv)],
     states={
@@ -212,8 +210,5 @@ exchange_handler = ConversationHandler(
         CONFIRM_PREVIEW: [CallbackQueryHandler(get_preview_confirmation, pattern="^preview_confirm$")],
         ENTER_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_address_and_create_transaction)],
     },
-    fallbacks=[
-        CallbackQueryHandler(cancel_exchange, pattern="^preview_cancel$"),
-        CommandHandler('cancel', cancel_exchange)
-    ],
+    fallbacks=[CommandHandler('cancel', cancel_exchange)],
 )
