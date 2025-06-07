@@ -1,11 +1,15 @@
 # tabadex_bot/main.py
+
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, TypeHandler
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from .config import settings, logger
 from .database.session import AsyncSessionLocal, async_engine
 from .database.models import Base
 from .utils.swapzone_api import swapzone_api_client
+
+# --- Import All Handlers ---
 from .handlers.start_handler import start_handler, language_handler
 from .handlers.menu_handler import menu_handler
 from .handlers.exchange_handler import exchange_handler
