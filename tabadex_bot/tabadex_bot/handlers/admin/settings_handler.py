@@ -50,7 +50,9 @@ async def get_new_markup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             
         await crud.set_setting(session, "markup_percentage", str(new_markup))
         
-        await update.message.reply_text(get_text("markup_updated_success", lang).format(markup=new_markup))
+        await update.message.reply_text(
+            get_text("markup_updated_success", lang).format(markup=new_markup)
+        )
         
     except (ValueError, TypeError):
         await update.message.reply_text(get_text("error_invalid_markup", lang))
@@ -74,4 +76,6 @@ set_markup_conv = ConversationHandler(
     fallbacks=[CallbackQueryHandler(cancel_set_markup, pattern="^cancel_set_markup$")]
 )
 
-admin_settings_handlers = [] # No other callback handlers in this file
+admin_settings_handlers = [
+    MessageHandler(filters.Regex(f"^({get_text('admin_settings', 'fa')}|{get_text('admin_settings', 'en')})$"), show_settings_menu)
+]

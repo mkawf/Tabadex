@@ -33,7 +33,6 @@ async def show_user_management_menu(update: Update, context: ContextTypes.DEFAUL
 async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "fa")
     session: AsyncSession = context.db_session
-    # This can be triggered by a callback or a message
     page = 1
     if update.callback_query:
         await update.callback_query.answer()
@@ -103,13 +102,16 @@ async def search_user_start(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     return SEARCH_GET_ID
 
 async def search_get_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = context.user_data.get("lang", "fa")
     try:
         user_id = int(update.message.text)
         await view_user_details(update, context, user_id_from_search=user_id)
-        return ConversationHandler.END
     except (ValueError, TypeError):
         await update.message.reply_text(get_text("error_invalid_user_id", lang))
-        return SEARCH_GET_ID
+        return SEARCH_GET_ID # Ask again
+    
+    await show_user_management_menu(update, context) # Return to menu
+    return ConversationHandler.END
 
 async def search_user_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
@@ -126,6 +128,8 @@ search_user_conv = ConversationHandler(
 )
 
 admin_user_handlers = [
+    MessageHandler(filters.Regex(f"^({get_text('admin_user_management', 'fa')}|{get_text('admin_user_management', 'en')})$"), show_user_management_menu),
+    MessageHandler(filters.Regex(f"^({get_text('admin_view_all_users', 'fa')}|{get_text('admin_view_all_users', 'en')})$"), list_users),
     CallbackQueryHandler(list_users, pattern="^admin_users_list_"),
     CallbackQueryHandler(view_user_details, pattern="^admin_view_user_"),
     CallbackQueryHandler(toggle_block_user, pattern="^admin_(un)?block_"),
