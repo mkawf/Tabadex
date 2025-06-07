@@ -8,7 +8,7 @@ from ..locales import get_text
 from .start_handler import show_main_menu
 from .account_handler import show_account_menu
 from .support_handler import show_support_menu
-from .admin.panel_handler import admin_panel  # <<<--- مسیر صحیح وارد کردن
+from .admin.panel_handler import admin_panel  # <<<--- مسیر صحیح
 from .exchange_handler import start_exchange_conv
 
 async def main_menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -35,7 +35,6 @@ async def main_menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == get_text("back_button", lang):
         await show_main_menu(update, context)
 
-# Filter for all menu buttons to avoid conflicts with other text inputs
 def create_main_menu_filter() -> filters.BaseFilter:
     all_menu_buttons = list(set([
         get_text(key, lang)
