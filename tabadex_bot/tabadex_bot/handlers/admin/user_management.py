@@ -1,7 +1,7 @@
 # tabadex_bot/handlers/admin/user_management.py
 
 import math
-from telegram import Update
+from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import (
     ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
 )
@@ -28,6 +28,7 @@ async def show_user_management_menu(update: Update, context: ContextTypes.DEFAUL
         text=get_text("admin_user_management_title", lang),
         reply_markup=get_admin_user_management_keyboard(lang)
     )
+    await update.message.reply_text("...", reply_markup=ReplyKeyboardRemove())
 
 @admin_required
 async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -94,8 +95,10 @@ async def toggle_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @admin_required
 async def search_user_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
     lang = context.user_data.get("lang", "fa")
-    await update.message.reply_text(
+    await query.edit_message_text(
         text=get_text("admin_enter_user_id_prompt", lang),
         reply_markup=get_cancel_keyboard(lang, "admin_search_user_cancel")
     )
@@ -108,28 +111,23 @@ async def search_get_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         await view_user_details(update, context, user_id_from_search=user_id)
     except (ValueError, TypeError):
         await update.message.reply_text(get_text("error_invalid_user_id", lang))
-        return SEARCH_GET_ID # Ask again
+        return SEARCH_GET_ID
     
-    await show_user_management_menu(update, context) # Return to menu
     return ConversationHandler.END
 
 async def search_user_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     await query.edit_message_text("Cancelled.")
-    await show_user_management_menu(update, context)
     return ConversationHandler.END
 
-# Handlers
 search_user_conv = ConversationHandler(
-    entry_points=[MessageHandler(filters.Regex(f"^({get_text('admin_search_user', 'fa')}|{get_text('admin_search_user', 'en')})$"), search_user_start)],
+    entry_points=[CallbackQueryHandler(search_user_start, pattern="^admin_search_user_start$")],
     states={SEARCH_GET_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, search_get_id)]},
     fallbacks=[CallbackQueryHandler(search_user_cancel, pattern="^admin_search_user_cancel$")]
 )
 
 admin_user_handlers = [
-    MessageHandler(filters.Regex(f"^({get_text('admin_user_management', 'fa')}|{get_text('admin_user_management', 'en')})$"), show_user_management_menu),
-    MessageHandler(filters.Regex(f"^({get_text('admin_view_all_users', 'fa')}|{get_text('admin_view_all_users', 'en')})$"), list_users),
     CallbackQueryHandler(list_users, pattern="^admin_users_list_"),
     CallbackQueryHandler(view_user_details, pattern="^admin_view_user_"),
     CallbackQueryHandler(toggle_block_user, pattern="^admin_(un)?block_"),
