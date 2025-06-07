@@ -200,11 +200,13 @@ create_ticket_conv = ConversationHandler(
         GET_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_ticket_message_and_save)],
     },
     fallbacks=[CallbackQueryHandler(cancel_ticket_creation, pattern="^cancel_ticket_creation$")],
+    per_message=True
 )
 reply_ticket_conv = ConversationHandler(
     entry_points=[CallbackQueryHandler(reply_to_ticket_start, pattern=r"^reply_ticket_")],
     states={GET_REPLY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_reply_and_save)]},
     fallbacks=[CallbackQueryHandler(cancel_reply, pattern=r"^cancel_reply_")],
+    per_message=True
 )
 support_handlers = [
     MessageHandler(filters.Regex(f"^({get_text('view_my_tickets_button', 'fa')}|{get_text('view_my_tickets_button', 'en')})$"), view_my_tickets),

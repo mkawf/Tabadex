@@ -125,6 +125,7 @@ add_address_conv_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(add_address_start, pattern="^add_address_start$")],
     states={GET_CURRENCY: [CallbackQueryHandler(get_currency_for_address, pattern="^add_addr_curr_")], GET_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_address_for_save)], GET_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name_and_save_address)]},
     fallbacks=[CallbackQueryHandler(cancel_add_address, pattern="^cancel_add_address$")],
+    per_message=True
 )
 account_handlers = [
     MessageHandler(filters.Regex(f"^({get_text('my_orders_button', 'fa')}|{get_text('my_orders_button', 'en')})$"), handle_orders_list),
