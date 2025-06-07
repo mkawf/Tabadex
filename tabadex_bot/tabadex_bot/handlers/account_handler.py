@@ -7,6 +7,7 @@ from ..config import logger
 from ..database import crud
 from ..keyboards import get_account_menu_keyboard, get_language_selection_keyboard, get_orders_keyboard, get_back_to_orders_keyboard, get_addresses_keyboard, create_currency_keyboard, get_cancel_keyboard
 from ..locales import get_text
+from .start_handler import show_main_menu
 from ..utils.swapzone_api import swapzone_api_client
 
 ORDERS_PER_PAGE = 5
@@ -58,13 +59,7 @@ async def show_order_details(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     page = context.user_data.get("current_order_page", 1)
     status_text = get_text(f"order_status_{order.status.name.lower()}", lang)
-    text = get_text("order_details_format", lang).format(
-        id=order.id, status=status_text, created_at=order.created_at.strftime('%Y-%m-%d %H:%M'),
-        from_amount=order.from_amount, from_currency=order.from_currency.upper(),
-        to_amount_estimated=order.to_amount_estimated, to_currency=order.to_currency.upper(),
-        recipient_address=f"<code>{order.recipient_address}</code>",
-        deposit_address=f"<code>{order.deposit_address}</code>"
-    )
+    text = get_text("order_details_format", lang).format(id=order.id, status=status_text, created_at=order.created_at.strftime('%Y-%m-%d %H:%M'), from_amount=order.from_amount, from_currency=order.from_currency.upper(), to_amount_estimated=order.to_amount_estimated, to_currency=order.to_currency.upper(), recipient_address=f"<code>{order.recipient_address}</code>", deposit_address=f"<code>{order.deposit_address}</code>")
     keyboard = get_back_to_orders_keyboard(lang, page)
     await query.edit_message_text(text, reply_markup=keyboard, parse_mode='HTML')
 
@@ -134,6 +129,7 @@ async def get_name_and_save_address(update: Update, context: ContextTypes.DEFAUL
     address = context.user_data.get('new_address_string')
     if not ticker or not address:
         await update.message.reply_text(get_text("error_generic", lang))
+        await show_account_menu(update, context)
         return ConversationHandler.END
     await crud.add_saved_address(session, user_id, name, address, ticker)
     await update.message.reply_text(get_text("add_address_success", lang))
@@ -165,8 +161,9 @@ add_address_conv_handler = ConversationHandler(
     fallbacks=[CallbackQueryHandler(cancel_add_address, pattern="^cancel_add_address$")],
 )
 
-account_callback_handlers = [
+account_handlers = [
     CallbackQueryHandler(orders_page_callback, pattern="^orders_page_"),
     CallbackQueryHandler(show_order_details, pattern="^view_order_"),
     CallbackQueryHandler(delete_address, pattern="^delete_address_"),
+    CallbackQueryHandler(lambda update, context: show_account_menu(update.callback_query, context), pattern="^back_to_account_menu$"),
 ]
