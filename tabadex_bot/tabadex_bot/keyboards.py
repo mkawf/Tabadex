@@ -8,7 +8,6 @@ from .database.models import User, Order, SavedAddress, Ticket, TicketStatus
 # --- Reply Keyboards (دکمه‌های ثابت) ---
 
 def get_main_menu_keyboard(lang: str, is_admin: bool) -> ReplyKeyboardMarkup:
-    """کیبورد منوی اصلی با دکمه‌های Reply."""
     keyboard = [
         [KeyboardButton(get_text("exchange_button", lang)), KeyboardButton(get_text("buy_tether_button", lang))],
         [KeyboardButton(get_text("account_button", lang)), KeyboardButton(get_text("support_button", lang))]
@@ -103,3 +102,46 @@ def get_admin_ticket_view_keyboard(lang: str, ticket_id: int, status_name: str) 
         keyboard.append([InlineKeyboardButton("☑️ " + get_text("admin_close_ticket_button", lang), callback_data=f"admin_close_ticket_{ticket_id}")])
     keyboard.append([InlineKeyboardButton(get_text("back_button", lang), callback_data="admin_tickets_main")])
     return InlineKeyboardMarkup(keyboard)
+
+def get_admin_user_management_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """Keyboard for the main user management menu."""
+    keyboard = [
+        [InlineKeyboardButton("📋 " + get_text("admin_view_all_users", lang), callback_data="admin_users_list_1")],
+        [InlineKeyboardButton("🔍 " + get_text("admin_search_user", lang), callback_data="admin_search_user_start")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_admin_users_list_keyboard(users: list, lang: str, current_page: int, total_pages: int) -> InlineKeyboardMarkup:
+    """Creates a paginated keyboard for the admin's user list."""
+    keyboard = []
+    for user in users:
+        status_icon = "🔴" if user.is_blocked else "🟢"
+        text = f"{status_icon} {user.first_name or 'No Name'} (@{user.username or 'N/A'}) - ID: {user.user_id}"
+        keyboard.append([InlineKeyboardButton(text, callback_data=f"admin_view_user_{user.user_id}")])
+    pagination_row = []
+    if current_page > 1:
+        pagination_row.append(InlineKeyboardButton("<<", callback_data=f"admin_users_list_{current_page - 1}"))
+    if current_page < total_pages:
+        pagination_row.append(InlineKeyboardButton(">>", callback_data=f"admin_users_list_{current_page + 1}"))
+    if pagination_row:
+        keyboard.append(pagination_row)
+    return InlineKeyboardMarkup(keyboard)
+    
+def get_admin_user_details_keyboard(lang: str, user_id: int, is_blocked: bool) -> InlineKeyboardMarkup:
+    if is_blocked:
+        block_text = "✅ " + get_text("admin_unblock_user", lang)
+        block_callback = f"admin_unblock_{user_id}"
+    else:
+        block_text = "🚫 " + get_text("admin_block_user", lang)
+        block_callback = f"admin_block_{user_id}"
+    keyboard = [[InlineKeyboardButton(block_text, callback_data=block_callback)], [InlineKeyboardButton(get_text("back_button", lang), callback_data="admin_users_list_1")]]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_admin_settings_keyboard(lang: str, markup: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(get_text("current_markup", lang).format(markup=markup), callback_data="noop")],
+        [InlineKeyboardButton("✏️ " + get_text("change_markup_button", lang), callback_data="set_markup_start")]
+    ])
+
+def get_admin_broadcast_confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton("✅ " + get_text("admin_broadcast_send", lang), callback_data="confirm_broadcast"), InlineKeyboardButton("❌ " + get_text("cancel_button", lang), callback_data="cancel_broadcast")]])
