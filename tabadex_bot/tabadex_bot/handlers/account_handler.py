@@ -5,6 +5,7 @@ from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import (
     ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
 )
+from telegram.constants import ParseMode
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import logger
@@ -47,7 +48,6 @@ async def show_orders_page(update: Update, context: ContextTypes.DEFAULT_TYPE, p
     total_orders = await crud.get_orders_count_by_user(session, user_id)
     if total_orders == 0:
         await update.effective_message.reply_text(get_text("my_orders_empty", lang))
-        # After showing the message, bring back the account menu
         await show_account_menu(update, context)
         return
 
@@ -57,7 +57,6 @@ async def show_orders_page(update: Update, context: ContextTypes.DEFAULT_TYPE, p
     text = get_text("my_orders_title", lang).format(page=page_number, total_pages=total_pages)
     keyboard = get_orders_keyboard(orders, lang, page_number, total_pages)
     
-    # If called from a callback, edit the message. Otherwise, send a new one.
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=keyboard)
     else:
@@ -186,15 +185,21 @@ async def get_name_and_save_address(update: Update, context: ContextTypes.DEFAUL
     for key in ['new_address_ticker', 'new_address_string']:
         context.user_data.pop(key, None)
     
-    await show_account_menu(update, context) # بازگشت به منوی حساب کاربری
+    await show_account_menu(update, context)
     return ConversationHandler.END
 
 async def cancel_add_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     lang = context.user_data.get("lang", "fa")
+    
+    for key in ['new_address_ticker', 'new_address_string']:
+        context.user_data.pop(key, None)
+        
     await query.edit_message_text(get_text("add_address_canceled", lang))
-    await show_account_menu(update, context)
+    # After cancelling, we should show the saved addresses list again
+    # But since we don't have the message object to edit, we'll just send a new one
+    await show_account_menu(update, context) # This will show the account menu keyboard
     return ConversationHandler.END
 
 async def handle_change_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -211,19 +216,13 @@ add_address_conv_handler = ConversationHandler(
         GET_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name_and_save_address)],
     },
     fallbacks=[CallbackQueryHandler(cancel_add_address, pattern="^cancel_add_address$")],
-    per_user=True,
-    per_chat=True
+    per_user=True, per_chat=True
 )
 
-account_callback_handler = CallbackQueryHandler(orders_page_callback, pattern="^orders_page_")
-account_callback_handler_details = CallbackQueryHandler(show_order_details, pattern="^view_order_")
-account_callback_handler_delete_addr = CallbackQueryHandler(delete_address, pattern="^delete_address_")
-
-def get_account_handlers() -> list:
-    # این تابع تمام هندلرهای این بخش را برمی‌گرداند تا در main.py ثبت شوند
-    return [
-        add_address_conv_handler,
-        account_callback_handler,
-        account_callback_handler_details,
-        account_callback_handler_delete_addr
-    ]
+# --- <<< بخش اصلاح شده و حیاتی >>> ---
+# تعریف لیستی از هندلرهای کلیک برای export کردن به main.py
+account_callback_handlers = [
+    CallbackQueryHandler(orders_page_callback, pattern="^orders_page_"),
+    CallbackQueryHandler(show_order_details, pattern="^view_order_"),
+    CallbackQueryHandler(delete_address, pattern="^delete_address_"),
+]
