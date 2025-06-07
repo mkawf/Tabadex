@@ -28,14 +28,11 @@ class SwapZoneAPI:
         session = await self._get_session()
         url = f"{API_BASE_URL}{endpoint}"
         
-        # --- <<< تغییر اصلی و حیاتی اینجاست >>> ---
-        # کلید API به عنوان یک هدر ارسال می‌شود، نه پارامتر URL
         headers = {
             'x-api-key': self.api_key
         }
 
         try:
-            # پارامتر headers به درخواست اضافه شده است
             async with session.request(method, url, params=params, json=data, headers=headers, timeout=15) as response:
                 if response.status != 200:
                     error_text = await response.text()
@@ -66,7 +63,6 @@ class SwapZoneAPI:
             return self._currencies_cache
 
         logger.info("Fetching currencies from SwapZone API...")
-        # پارامتر apiKey از اینجا حذف شده چون در هدر ارسال می‌شود
         response = await self._request('GET', '/currencies')
         if isinstance(response, list):
             self._currencies_cache = response
@@ -77,14 +73,25 @@ class SwapZoneAPI:
             raise Exception("Failed to parse currencies from API.")
 
     async def get_rate(self, from_currency: str, to_currency: str, amount: str) -> Dict[str, Any]:
-        """Gets the estimated exchange rate."""
-        params = {'from': from_currency, 'to': to_currency, 'amount': amount}
-        logger.info(f"Getting rate for {amount} {from_currency} to {to_currency}")
+        """Gets the estimated exchange rate with additional required parameters."""
+        # --- <<< بخش اصلاح شده و حیاتی اینجاست >>> ---
+        # اضافه کردن پارامترهای جدید طبق راهنمایی پشتیبانی
+        params = {
+            'from': from_currency,
+            'to': to_currency,
+            'amount': amount,
+            'rateType': 'all',        # برای جستجو در تمام شرکای تبادل
+            'chooseRate': 'best',     # برای انتخاب بهترین نرخ
+        }
+        logger.info(f"Getting rate for {amount} {from_currency} to {to_currency} with extended params")
         return await self._request('GET', '/rate', params=params)
 
     async def create_transaction(self, from_currency: str, to_currency: str, amount: str, recipient: str, refund: Optional[str] = None) -> Dict[str, Any]:
         """Creates a new exchange transaction."""
-        data = {'from': from_currency, 'to': to_currency, 'amount': amount, 'recipient': recipient, 'refund': refund}
+        data = {
+            'from': from_currency, 'to': to_currency, 'amount': amount,
+            'recipient': recipient, 'refund': refund
+        }
         logger.info(f"Creating transaction: {amount} {from_currency} -> {to_currency}")
         return await self._request('POST', '/create', data=data)
 
