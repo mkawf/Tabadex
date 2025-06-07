@@ -1,11 +1,14 @@
 # tabadex_bot/keyboards.py
+from typing import List, Dict, Any
 from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+
 from .locales import get_text
-from .database.models import TicketStatus
+from .database.models import User, Order, SavedAddress, Ticket, TicketStatus
 
 # --- Reply Keyboards (دکمه‌های ثابت) ---
 
 def get_main_menu_keyboard(lang: str, is_admin: bool) -> ReplyKeyboardMarkup:
+    """کیبورد منوی اصلی با دکمه‌های Reply."""
     keyboard = [
         [KeyboardButton(get_text("exchange_button", lang)), KeyboardButton(get_text("buy_tether_button", lang))],
         [KeyboardButton(get_text("account_button", lang)), KeyboardButton(get_text("support_button", lang))]
@@ -13,11 +16,6 @@ def get_main_menu_keyboard(lang: str, is_admin: bool) -> ReplyKeyboardMarkup:
     if is_admin:
         keyboard.append([KeyboardButton(get_text("admin_panel_button", lang))])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-def get_language_selection_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup([
-        [KeyboardButton("🇮🇷 فارسی (Persian)"), KeyboardButton("🇬🇧 English")]
-    ], resize_keyboard=True, one_time_keyboard=True)
 
 def get_account_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup([
@@ -33,12 +31,16 @@ def get_support_menu_keyboard(lang: str) -> ReplyKeyboardMarkup:
 
 def get_admin_panel_keyboard(lang: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup([
-        [KeyboardButton(get_text("admin_user_management", lang)), KeyboardButton(get_text("admin_ticket_management", lang))],
+        [KeyboardButton(get_text("admin_user_management", lang))],
+        [KeyboardButton(get_text("admin_ticket_management", lang))],
         [KeyboardButton(get_text("admin_statistics", lang)), KeyboardButton(get_text("admin_broadcast", lang))],
         [KeyboardButton(get_text("admin_settings", lang)), KeyboardButton(get_text("back_button", lang))]
     ], resize_keyboard=True)
 
 # --- Inline Keyboards (دکمه‌های شیشه‌ای) ---
+def get_language_selection_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🇮🇷 فارسی (Persian)", callback_data="set_lang_fa"), InlineKeyboardButton("🇬🇧 English", callback_data="set_lang_en")]])
+
 def get_cancel_keyboard(lang: str, callback_data: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton(get_text("cancel_button", lang), callback_data=callback_data)]])
 
@@ -81,8 +83,7 @@ def get_ticket_view_keyboard(lang: str, ticket_id: int, status_name: str) -> Inl
     if status_name != 'CLOSED':
         keyboard.append([InlineKeyboardButton("✍️ " + get_text("reply_to_ticket_button", lang), callback_data=f"reply_ticket_{ticket_id}")])
         keyboard.append([InlineKeyboardButton("☑️ " + get_text("close_ticket_button", lang), callback_data=f"close_ticket_{ticket_id}")])
-    # دکمه بازگشت به لیست تیکت‌ها
-    keyboard.append([InlineKeyboardButton(get_text("back_button", lang), callback_data="back_to_ticket_list")])
+    keyboard.append([InlineKeyboardButton(get_text("back_button", lang), callback_data="support_view_list")])
     return InlineKeyboardMarkup(keyboard)
 
 def get_admin_tickets_keyboard(tickets: list, lang: str) -> InlineKeyboardMarkup:
@@ -119,3 +120,8 @@ def get_admin_settings_keyboard(lang: str, markup: str) -> InlineKeyboardMarkup:
 
 def get_admin_broadcast_confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("✅ " + get_text("admin_broadcast_send", lang), callback_data="confirm_broadcast"), InlineKeyboardButton("❌ " + get_text("cancel_button", lang), callback_data="cancel_broadcast")]])
+
+# --- <<< تابع فراموش شده در اینجا اضافه شده است >>> ---
+def get_back_to_admin_panel_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """A keyboard with a single button to go back to the admin panel."""
+    return InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back_button", lang), callback_data="admin_panel")]])
