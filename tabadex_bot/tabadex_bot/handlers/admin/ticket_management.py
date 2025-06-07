@@ -91,6 +91,7 @@ async def admin_cancel_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await query.answer()
     context.user_data.pop('admin_reply_ticket_id', None)
     await query.edit_message_text("Cancelled.")
+    # Here you might want to show the admin ticket list again
     return ConversationHandler.END
 
 @admin_required
@@ -102,14 +103,19 @@ async def admin_close_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE)
     success = await crud.close_ticket_by_admin(session, ticket_id)
     if success:
         await query.answer("Ticket closed!", show_alert=True)
+        # Refresh the view
+        await show_admin_ticket_details(update, context)
     else:
         await query.answer("Error closing ticket.", show_alert=True)
 
-# Handlers
-admin_ticket_callback_handler = CallbackQueryHandler(show_admin_ticket_details, pattern="^admin_view_ticket_")
-admin_ticket_close_handler = CallbackQueryHandler(admin_close_ticket, pattern="^admin_close_ticket_")
+# --- Handlers ---
 admin_reply_conv = ConversationHandler(
     entry_points=[CallbackQueryHandler(admin_reply_start, pattern="^admin_reply_start_")],
     states={ADMIN_GET_REPLY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_admin_reply_and_save)]},
     fallbacks=[CallbackQueryHandler(admin_cancel_reply, pattern="^admin_cancel_reply_")],
 )
+
+admin_ticket_handlers = [
+    CallbackQueryHandler(show_admin_ticket_details, pattern="^admin_view_ticket_"),
+    CallbackQueryHandler(admin_close_ticket, pattern="^admin_close_ticket_"),
+]
